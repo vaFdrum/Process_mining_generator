@@ -1,40 +1,57 @@
 import logging
 import sys
 from tqdm import tqdm
+from typing import Optional
+
 
 class ProgressLogger:
-    def __init__(self, name='ProcessMiningGenerator', level=logging.INFO):
-        self.name = name
+    """Гибридный логгер с прогресс-баром"""
+
+    def __init__(self, name="ProcessMiningGenerator"):
         self.logger = logging.getLogger(name)
-        self.logger.setLevel(level)
+        self.pbar: Optional[tqdm] = None
+        self.setup_logging()
+
+    def setup_logging(self):
+        """Настройка логирования"""
         handler = logging.StreamHandler(sys.stdout)
-        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s", "%Y-%m-%d %H:%M:%S")
+        formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
         handler.setFormatter(formatter)
-        if not self.logger.handlers:
-            self.logger.addHandler(handler)
-        self.pbar = None
 
-    def start_progress(self, total:int):
-        if self.pbar is None:
-            self.pbar = tqdm(total=total)
+        # Очищаем предыдущие обработчики
+        self.logger.handlers.clear()
+        self.logger.addHandler(handler)
+        self.logger.setLevel(logging.INFO)
+        self.logger.propagate = False
 
-    def update_progress(self, n:int=1):
+    def start_progress(self, total: int, desc: str):
+        """Запуск прогресс-бара"""
+        self.pbar = tqdm(total=total, desc=desc, unit="events", unit_scale=True)
+
+    def update_progress(self, n: int = 1):
+        """Обновление прогресс-бара"""
         if self.pbar:
             self.pbar.update(n)
 
     def close_progress(self):
+        """Закрытие прогресс-бара"""
         if self.pbar:
             self.pbar.close()
             self.pbar = None
 
-    def info(self, msg:str):
-        self.logger.info(msg)
+    def info(self, message: str, *args):
+        """Info сообщение"""
+        self.logger.info(message, *args)
 
-    def warning(self, msg:str):
-        self.logger.warning(msg)
+    def warning(self, message: str, *args):
+        """Warning сообщение"""
+        self.logger.warning(message, *args)
 
-    def error(self, msg:str):
-        self.logger.error(msg)
+    def error(self, message: str, *args):
+        """Error сообщение"""
+        self.logger.error(message, *args)
 
-def get_logger(name='ProcessMiningGenerator'):
+
+def get_logger(name="ProcessMiningGenerator") -> ProgressLogger:
+    """Фабрика для создания логгера"""
     return ProgressLogger(name=name)

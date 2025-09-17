@@ -86,7 +86,7 @@ class CSVWriter:
         }
 
     def write_events_to_csv(self, events: List[Dict], filepath: str, mode: str = "w"):
-        """Записывает события в CSV с поддержкой мультипроцессорных полей"""
+        """Записывает события в CSV"""
         is_append = mode == "a" and os.path.exists(filepath)
 
         # Базовые fieldnames
@@ -104,15 +104,6 @@ class CSVWriter:
             "rework",
         ]
 
-        # Мультипроцессорные поля
-        multi_process_fields = [
-            "end_to_end_id",
-            "process_sequence",
-            "total_processes",
-            "previous_case_id",
-            "handover_flag",
-            "handover_time_minutes",
-        ]
 
         # Дополнительные поля
         additional_fields = [
@@ -129,7 +120,7 @@ class CSVWriter:
         ]
 
         # Все fieldnames
-        all_fieldnames = fieldnames + multi_process_fields + additional_fields
+        all_fieldnames = fieldnames + additional_fields
 
         self.logger.info("Запись %d событий в CSV (mode: %s)...", len(events), mode)
 

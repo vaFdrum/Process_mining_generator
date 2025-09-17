@@ -9,7 +9,7 @@ from case_generator import CaseGenerator
 from csv_writer import CSVWriter
 from utils import distribute_processes
 from config import CONFIG_20GB, CONFIG_30GB, CONFIG_50GB, CONFIG_CUSTOM
-from .logger import get_logger
+from logger import get_logger
 
 
 class ProcessMiningGenerator:

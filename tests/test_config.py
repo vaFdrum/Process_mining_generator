@@ -1,41 +1,40 @@
 import pytest
 from config import (
-    CONFIG_20GB, CONFIG_30GB, CONFIG_50GB, CONFIG_CUSTOM,
+    CONFIG_50MB, CONFIG_500MB, CONFIG_750MB, CONFIG_1GB,
+    CONFIG_5GB, CONFIG_10GB, CONFIG_20GB, CONFIG_30GB, CONFIG_50GB,
     PROCESS_MODELS, SCENARIO_WEIGHTS, WAITING_TIMES, SEASONAL_MULTIPLIERS,
 )
 
 
+ALL_CONFIGS = [
+    (CONFIG_50MB, "50MB"),
+    (CONFIG_500MB, "500MB"),
+    (CONFIG_750MB, "750MB"),
+    (CONFIG_1GB, "1GB"),
+    (CONFIG_5GB, "5GB"),
+    (CONFIG_10GB, "10GB"),
+    (CONFIG_20GB, "20GB"),
+    (CONFIG_30GB, "30GB"),
+    (CONFIG_50GB, "50GB"),
+]
+
+
 class TestConfigurations:
-    @pytest.mark.parametrize("config,name", [
-        (CONFIG_20GB, "20GB"),
-        (CONFIG_30GB, "30GB"),
-        (CONFIG_50GB, "50GB"),
-        (CONFIG_CUSTOM, "CUSTOM"),
-    ])
+    @pytest.mark.parametrize("config,name", ALL_CONFIGS)
     def test_process_distribution_sums_to_one(self, config, name):
         total = sum(config["process_distribution"].values())
         assert abs(total - 1.0) < 0.01, (
             f"{name}: sum of weights = {total}, expected ~1.0"
         )
 
-    @pytest.mark.parametrize("config,name", [
-        (CONFIG_20GB, "20GB"),
-        (CONFIG_30GB, "30GB"),
-        (CONFIG_50GB, "50GB"),
-        (CONFIG_CUSTOM, "CUSTOM"),
-    ])
+    @pytest.mark.parametrize("config,name", ALL_CONFIGS)
     def test_all_processes_in_distribution_exist(self, config, name):
         for process in config["process_distribution"]:
             assert process in PROCESS_MODELS, (
                 f"{name}: process '{process}' not in PROCESS_MODELS"
             )
 
-    @pytest.mark.parametrize("config,name", [
-        (CONFIG_20GB, "20GB"),
-        (CONFIG_30GB, "30GB"),
-        (CONFIG_50GB, "50GB"),
-        (CONFIG_CUSTOM, "CUSTOM"),
-    ])
+    @pytest.mark.parametrize("config,name", ALL_CONFIGS)
     def test_required_config_fields(self, config, name):
         required = ["target_size_gb", "output_dir", "process_distribution",
                      "anomaly_rate", "rework_rate", "start_date"]

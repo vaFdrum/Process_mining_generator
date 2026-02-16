@@ -9,7 +9,10 @@ from case_generator import CaseGenerator
 from csv_writer import CSVWriter
 from resource_pool import ResourcePool
 from utils import distribute_processes
-from config import CONFIG_20GB, CONFIG_30GB, CONFIG_50GB, CONFIG_CUSTOM
+from config import (
+    CONFIG_50MB, CONFIG_500MB, CONFIG_750MB, CONFIG_1GB,
+    CONFIG_5GB, CONFIG_10GB, CONFIG_20GB, CONFIG_30GB, CONFIG_50GB,
+)
 from logger import get_logger
 
 
@@ -169,8 +172,8 @@ def parse_arguments():
     parser.add_argument(
         "--config",
         type=str,
-        default="custom",
-        choices=["20GB", "30GB", "50GB", "custom"],
+        default="1GB",
+        choices=["50MB", "500MB", "750MB", "1GB", "5GB", "10GB", "20GB", "30GB", "50GB", "custom"],
         help="Конфигурация для генерации",
     )
     parser.add_argument(
@@ -188,14 +191,22 @@ def main():
     logger = get_logger()
 
     # Выбор конфигурации
-    if args.config == "20GB":
-        config = CONFIG_20GB.copy()
-    elif args.config == "30GB":
-        config = CONFIG_30GB.copy()
-    elif args.config == "50GB":
-        config = CONFIG_50GB.copy()
+    CONFIG_MAP = {
+        "50MB": CONFIG_50MB,
+        "500MB": CONFIG_500MB,
+        "750MB": CONFIG_750MB,
+        "1GB": CONFIG_1GB,
+        "5GB": CONFIG_5GB,
+        "10GB": CONFIG_10GB,
+        "20GB": CONFIG_20GB,
+        "30GB": CONFIG_30GB,
+        "50GB": CONFIG_50GB,
+    }
+
+    if args.config in CONFIG_MAP:
+        config = CONFIG_MAP[args.config].copy()
     else:
-        config = CONFIG_CUSTOM.copy()
+        config = CONFIG_1GB.copy()
         if args.size:
             config["target_size_gb"] = args.size
 

@@ -148,60 +148,9 @@ SEASONAL_MULTIPLIERS = {
 }
 
 # КОНФИГУРАЦИИ ДЛЯ РАЗНЫХ ОБЪЕМОВ
-CONFIG_20GB = {
-    "target_size_gb": 20.0,
-    "output_dir": "./process_mining_dataset/",
-    "process_distribution": {
-        "OrderFulfillment": 0.4,
-        "CustomerSupport": 0.25,
-        "LoanApplication": 0.15,
-        "InvoiceProcessing": 0.12,
-        "HRRecruitment": 0.08,
-    },
-    "anomaly_rate": 0.03,
-    "rework_rate": 0.08,
-
-    "time_range_days": 365 * 3,
-    "start_date": "2022-01-01",
-}
-
-CONFIG_30GB = {
-    "target_size_gb": 30.0,
-    "output_dir": "./process_mining_dataset/",
-    "process_distribution": {
-        "OrderFulfillment": 0.35,
-        "CustomerSupport": 0.25,
-        "LoanApplication": 0.15,
-        "InvoiceProcessing": 0.15,
-        "HRRecruitment": 0.10,
-    },
-    "anomaly_rate": 0.025,
-    "rework_rate": 0.07,
-
-    "time_range_days": 365 * 5,
-    "start_date": "2021-01-01",
-}
-
-CONFIG_50GB = {
-    "target_size_gb": 50.0,
-    "output_dir": "./process_mining_dataset/",
-    "process_distribution": {
-        "OrderFulfillment": 0.3,
-        "CustomerSupport": 0.25,
-        "LoanApplication": 0.2,
-        "InvoiceProcessing": 0.15,
-        "HRRecruitment": 0.10,
-    },
-    "anomaly_rate": 0.02,
-    "rework_rate": 0.06,
-
-    "time_range_days": 365 * 7,
-    "start_date": "2019-01-01",
-}
-
-CONFIG_CUSTOM = {
-    "target_size_gb": 1.0,
-    "output_dir": "./process_mining_dataset/",
+CONFIG_50MB = {
+    "target_size_gb": 0.05,
+    "output_dir": "./dataset_50mb/",
     "process_distribution": {
         "OrderFulfillment": 0.40,
         "CustomerSupport": 0.25,
@@ -211,9 +160,138 @@ CONFIG_CUSTOM = {
     },
     "anomaly_rate": 0.03,
     "rework_rate": 0.08,
+    "time_range_days": 90,
+    "start_date": "2024-01-01",
+}
+
+CONFIG_500MB = {
+    "target_size_gb": 0.5,
+    "output_dir": "./dataset_500mb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.40,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.12,
+        "HRRecruitment": 0.08,
+    },
+    "anomaly_rate": 0.03,
+    "rework_rate": 0.08,
+    "time_range_days": 180,
+    "start_date": "2023-07-01",
+}
+
+CONFIG_750MB = {
+    "target_size_gb": 0.75,
+    "output_dir": "./dataset_750mb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.40,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.12,
+        "HRRecruitment": 0.08,
+    },
+    "anomaly_rate": 0.03,
+    "rework_rate": 0.08,
+    "time_range_days": 270,
+    "start_date": "2023-04-01",
+}
+
+CONFIG_1GB = {
+    "target_size_gb": 1.0,
+    "output_dir": "./dataset_1gb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.40,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.12,
+        "HRRecruitment": 0.08,
+    },
+    "anomaly_rate": 0.03,
+    "rework_rate": 0.08,
+    "time_range_days": 365,
+    "start_date": "2023-01-01",
+}
+
+CONFIG_5GB = {
+    "target_size_gb": 5.0,
+    "output_dir": "./dataset_5gb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.40,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.12,
+        "HRRecruitment": 0.08,
+    },
+    "anomaly_rate": 0.03,
+    "rework_rate": 0.08,
+    "time_range_days": 365 * 2,
     "start_date": "2022-01-01",
 }
 
+CONFIG_10GB = {
+    "target_size_gb": 10.0,
+    "output_dir": "./dataset_10gb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.40,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.12,
+        "HRRecruitment": 0.08,
+    },
+    "anomaly_rate": 0.03,
+    "rework_rate": 0.08,
+    "time_range_days": 365 * 3,
+    "start_date": "2022-01-01",
+}
+
+CONFIG_20GB = {
+    "target_size_gb": 20.0,
+    "output_dir": "./dataset_20gb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.40,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.12,
+        "HRRecruitment": 0.08,
+    },
+    "anomaly_rate": 0.03,
+    "rework_rate": 0.08,
+    "time_range_days": 365 * 3,
+    "start_date": "2022-01-01",
+}
+
+CONFIG_30GB = {
+    "target_size_gb": 30.0,
+    "output_dir": "./dataset_30gb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.35,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.15,
+        "InvoiceProcessing": 0.15,
+        "HRRecruitment": 0.10,
+    },
+    "anomaly_rate": 0.025,
+    "rework_rate": 0.07,
+    "time_range_days": 365 * 5,
+    "start_date": "2021-01-01",
+}
+
+CONFIG_50GB = {
+    "target_size_gb": 50.0,
+    "output_dir": "./dataset_50gb/",
+    "process_distribution": {
+        "OrderFulfillment": 0.30,
+        "CustomerSupport": 0.25,
+        "LoanApplication": 0.20,
+        "InvoiceProcessing": 0.15,
+        "HRRecruitment": 0.10,
+    },
+    "anomaly_rate": 0.02,
+    "rework_rate": 0.06,
+    "time_range_days": 365 * 7,
+    "start_date": "2019-01-01",
+}
+
 # Настройки по умолчанию
-DEFAULT_CONFIG = CONFIG_CUSTOM
+DEFAULT_CONFIG = CONFIG_1GB
 BATCH_SIZE = 10000

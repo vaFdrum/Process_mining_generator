@@ -17,6 +17,7 @@ from constants import (
     PROCESS_COMMENTS,
 )
 from resource_pool import ResourcePool
+from business_calendar import adjust_to_business_hours
 
 # Маппинг ролей — на уровне модуля, чтобы не пересоздавать при каждом вызове
 ROLE_MAPPING = {
@@ -132,6 +133,12 @@ class CaseGenerator:
                 current_time += timedelta(minutes=waiting_time)
 
             activity_name = get_activity_name(activity, process_name)
+
+            # Сдвигаем в рабочие часы (автоматические активности не сдвигаются)
+            current_time = adjust_to_business_hours(
+                current_time, process_name, activity_name
+            )
+
             role = self._get_role_for_activity(activity, process_name)
             employee = self.resource_pool.get_employee(role)
 

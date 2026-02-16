@@ -2,142 +2,34 @@ import csv
 from typing import List, Dict
 from datetime import datetime
 import random
-import string
 import os
-from constants import DEPARTMENTS, PRIORITIES
+from constants import DEPARTMENTS, PRIORITIES, BASE_CSV_FIELDS, EXTENDED_CSV_FIELDS, CSV_FIELD_NAMES
 
 
 class CSVWriter:
     def __init__(self, logger):
         self.logger = logger
 
-    def generate_large_comment(
-        self, min_chars: int = 100, max_chars: int = 1000
-    ) -> str:
-        """Генерирует большой комментарий для увеличения размера строки"""
-        words = [
-            "process",
-            "system",
-            "analysis",
-            "data",
-            "mining",
-            "business",
-            "workflow",
-            "optimization",
-            "efficiency",
-            "performance",
-            "monitoring",
-            "tracking",
-            "compliance",
-            "audit",
-            "validation",
-            "verification",
-            "automation",
-            "integration",
-            "transformation",
-            "migration",
-            "synchronization",
-            "deployment",
-            "configuration",
-            "implementation",
-            "maintenance",
-            "support",
-            "development",
-            "testing",
-            "quality",
-            "assurance",
-            "security",
-            "networking",
-            "infrastructure",
-            "cloud",
-            "database",
-            "application",
-            "service",
-            "platform",
-            "framework",
-        ]
-
-        num_words = random.randint(50, 200)
-        comment = " ".join(random.choices(words, k=num_words))
-
-        if len(comment) < max_chars:
-            additional_chars = random.randint(0, max_chars - len(comment))
-            comment += " " + "".join(
-                random.choices(
-                    string.ascii_letters + string.digits + " ,.-!?", k=additional_chars
-                )
-            )
-
-        return comment[:max_chars]
-
-    def generate_additional_data(self) -> Dict:
-        """Генерирует дополнительные данные"""
-        return {
-            "user_id": f"user_{random.randint(1, 5000)}",
-            "department": random.choice(DEPARTMENTS),
-            "priority": random.choice(PRIORITIES),
-            "cost": round(random.uniform(10, 5000), 2),
-            "comment": self.generate_large_comment(200, 800),
-            "resource_usage": round(random.uniform(1.0, 100.0), 2),
-            "processing_time": random.randint(1, 600),
-            "queue_time": random.randint(0, 300),
-            "success_rate": round(random.uniform(85.0, 100.0), 2),
-            "error_count": random.randint(0, 5),
-        }
-
     def write_events_to_csv(self, events: List[Dict], filepath: str, mode: str = "w"):
         """Записывает события в CSV"""
         is_append = mode == "a" and os.path.exists(filepath)
 
-        # Базовые fieldnames
-        fieldnames = [
-            "case_id",
-            "timestamp_start",
-            "timestamp_end",
-            "process",
-            "activity",
-            "duration_minutes",
-            "role",
-            "resource",
-            "anomaly",
-            "anomaly_type",
-            "rework",
-        ]
-
-
-        # Дополнительные поля
-        additional_fields = [
-            "user_id",
-            "department",
-            "priority",
-            "cost",
-            "comment",
-            "resource_usage",
-            "processing_time",
-            "queue_time",
-            "success_rate",
-            "error_count",
-        ]
-
-        # Все fieldnames
-        all_fieldnames = fieldnames + additional_fields
-
         self.logger.info("Запись %d событий в CSV (mode: %s)...", len(events), mode)
 
         with open(filepath, mode, newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=all_fieldnames)
+            writer = csv.DictWriter(csvfile, fieldnames=CSV_FIELD_NAMES)
 
             if not is_append:
                 writer.writeheader()
 
             for i, event in enumerate(events):
-                formatted_event = self._format_event(event, all_fieldnames)
+                formatted_event = self._format_event(event)
                 writer.writerow(formatted_event)
 
                 if (i + 1) % 50000 == 0:
                     self.logger.info("Записано %d событий...", i + 1)
 
-    def _format_event(self, event: Dict, all_fieldnames: List[str]) -> Dict:
+    def _format_event(self, event: Dict) -> Dict:
         """Форматирует событие для записи в CSV"""
         formatted_event = event.copy()
 
@@ -150,38 +42,44 @@ class CSVWriter:
                     "%Y-%m-%d %H:%M:%S"
                 )
 
-        # Заполняем все обязательные поля
-        for field in all_fieldnames:
+        # Генерируем дополнительные event-level данные только если отсутствуют
+        if "user_id" not in formatted_event:
+            formatted_event["user_id"] = f"user_{random.randint(1, 5000)}"
+        if "department" not in formatted_event:
+            formatted_event["department"] = random.choice(DEPARTMENTS)
+        if "priority" not in formatted_event:
+            formatted_event["priority"] = random.choice(PRIORITIES)
+        if "cost" not in formatted_event:
+            formatted_event["cost"] = round(random.uniform(10, 5000), 2)
+        if "comment" not in formatted_event:
+            formatted_event["comment"] = ""
+        if "resource_usage" not in formatted_event:
+            formatted_event["resource_usage"] = round(random.uniform(1.0, 100.0), 2)
+        if "processing_time" not in formatted_event:
+            formatted_event["processing_time"] = random.randint(1, 600)
+        if "queue_time" not in formatted_event:
+            formatted_event["queue_time"] = random.randint(0, 300)
+        if "success_rate" not in formatted_event:
+            formatted_event["success_rate"] = round(random.uniform(85.0, 100.0), 2)
+        if "error_count" not in formatted_event:
+            formatted_event["error_count"] = random.randint(0, 5)
+
+        # Заполняем отсутствующие базовые поля значениями по умолчанию
+        for field in CSV_FIELD_NAMES:
             if field not in formatted_event:
                 formatted_event[field] = self._get_default_value(field)
-
-        # Добавляем дополнительные данные
-        additional_data = self.generate_additional_data()
-        formatted_event.update(additional_data)
 
         return formatted_event
 
     def _get_default_value(self, field: str):
         """Возвращает значение по умолчанию для поля"""
         defaults = {
-            # Базовые поля
             "anomaly": False,
             "rework": False,
             "anomaly_type": None,
             "role": "",
             "resource": "",
             "duration_minutes": 0,
-            # Мультипроцессорные поля
-            "end_to_end_id": "",
-            "process_sequence": 0,
-            "total_processes": 0,
-            "previous_case_id": "",
-            "handover_flag": False,
-            "handover_time_minutes": 0,
-            # Дополнительные поля
-            "user_id": "",
-            "department": "",
-            "priority": "",
             "cost": 0.0,
             "comment": "",
             "resource_usage": 0.0,
@@ -191,13 +89,3 @@ class CSVWriter:
             "error_count": 0,
         }
         return defaults.get(field, "")
-
-
-def validate_events(events: List[Dict]) -> bool:
-    """Basic validation of event data"""
-    required_fields = ["case_id", "timestamp_start", "timestamp_end", "activity"]
-    for event in events:
-        for field in required_fields:
-            if field not in event or event[field] is None:
-                return False
-    return True

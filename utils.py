@@ -95,68 +95,34 @@ def distribute_processes(
     if num_cases <= 0:
         return {process: 0 for process in process_distribution}
 
-    # Проверяем и нормализуем веса
+    # Нормализуем веса к сумме 1.0
     total_weight = sum(process_distribution.values())
-    if abs(total_weight - 1.0) > 0.001:
-        # Нормализуем веса к сумме 1.0
-        normalized_weights = {
-            process: weight / total_weight
-            for process, weight in process_distribution.items()
-        }
-    else:
-        normalized_weights = process_distribution.copy()
+    normalized = {
+        process: weight / total_weight
+        for process, weight in process_distribution.items()
+    }
 
+    # Вычисляем точные доли и целые части
     distribution = {}
+    fractionals = {}
     remaining = num_cases
-    processes = list(normalized_weights.keys())
 
-    # Сначала распределяем гарантированную часть
-    for i, process in enumerate(processes):
-        weight = normalized_weights[process]
-
-        if i == len(processes) - 1:
-            # Последний процесс получает весь остаток
-            count = remaining
-        else:
-            # Вычисляем точное количество с округлением
-            exact_count = num_cases * weight
-            count = int(exact_count)
-
-            # Сохраняем дробную часть для последующего распределения
-            fractional = exact_count - count
-            if hasattr(distribute_processes, "fractionals"):
-                distribute_processes.fractionals[process] = fractional
-            else:
-                distribute_processes.fractionals = {process: fractional}
-
-        count = max(0, min(count, remaining))  # Защита от выхода за границы
+    for process, weight in normalized.items():
+        exact_count = num_cases * weight
+        count = int(exact_count)
+        fractionals[process] = exact_count - count
+        count = max(0, min(count, remaining))
         distribution[process] = count
         remaining -= count
 
-    # Если остались нераспределенные кейсы (из-за округления вниз)
-    if remaining > 0:
-        # Распределяем остаток по процессам с наибольшей дробной частью
-        if hasattr(distribute_processes, "fractionals"):
-            fractionals = distribute_processes.fractionals
-            sorted_by_fractional = sorted(
-                fractionals.items(), key=lambda x: x[1], reverse=True
-            )
-
-            for process, fractional in sorted_by_fractional:
-                if remaining <= 0:
-                    break
-                distribution[process] += 1
-                remaining -= 1
-
-        # Если все еще остались, распределяем по порядку
-        for process in processes:
-            if remaining <= 0:
-                break
-            distribution[process] += 1
-            remaining -= 1
-
-    # Очищаем временные данные
-    if hasattr(distribute_processes, "fractionals"):
-        del distribute_processes.fractionals
+    # Распределяем остаток по процессам с наибольшей дробной частью
+    sorted_by_fractional = sorted(
+        fractionals.items(), key=lambda x: x[1], reverse=True
+    )
+    for process, _ in sorted_by_fractional:
+        if remaining <= 0:
+            break
+        distribution[process] += 1
+        remaining -= 1
 
     return distribution

@@ -125,6 +125,138 @@ class TestCaseGenerator:
             assert e["resource"] != ""
 
 
+class TestCaseLevelConsistency:
+    """Tests for A1: case-level data consistency"""
+
+    def setup_method(self):
+        random.seed(42)
+        self.gen = CaseGenerator(start_case_id=1)
+
+    def test_all_events_share_user_id(self):
+        events = self.gen.generate_case(
+            "OrderFulfillment", start_time=datetime(2024, 1, 15, 10, 0)
+        )
+        user_ids = set(e["user_id"] for e in events)
+        assert len(user_ids) == 1
+
+    def test_all_events_share_department(self):
+        events = self.gen.generate_case(
+            "LoanApplication", start_time=datetime(2024, 3, 1)
+        )
+        depts = set(e["department"] for e in events)
+        assert len(depts) == 1
+
+    def test_all_events_share_priority(self):
+        events = self.gen.generate_case(
+            "CustomerSupport", start_time=datetime(2024, 6, 1)
+        )
+        priorities = set(e["priority"] for e in events)
+        assert len(priorities) == 1
+
+    def test_all_events_share_cost(self):
+        events = self.gen.generate_case(
+            "InvoiceProcessing", start_time=datetime(2024, 6, 1)
+        )
+        costs = set(e["cost"] for e in events)
+        assert len(costs) == 1
+
+    def test_all_events_share_comment(self):
+        events = self.gen.generate_case(
+            "HRRecruitment", start_time=datetime(2024, 6, 1)
+        )
+        comments = set(e["comment"] for e in events)
+        assert len(comments) == 1
+
+    def test_cost_range_per_process(self):
+        from constants import PROCESS_COST_RANGES
+        for process, (cmin, cmax) in PROCESS_COST_RANGES.items():
+            gen = CaseGenerator(start_case_id=1)
+            events = gen.generate_case(process, start_time=datetime(2024, 6, 1))
+            cost = events[0]["cost"]
+            assert cmin <= cost <= cmax, (
+                f"{process}: cost {cost} outside [{cmin}, {cmax}]"
+            )
+
+    def test_department_matches_process(self):
+        from constants import PROCESS_DEPARTMENTS
+        gen = CaseGenerator(start_case_id=1)
+        for _ in range(50):
+            events = gen.generate_case(
+                "LoanApplication", start_time=datetime(2024, 1, 1)
+            )
+            dept = events[0]["department"]
+            assert dept in PROCESS_DEPARTMENTS["LoanApplication"]
+
+    def test_resource_id_present(self):
+        gen = CaseGenerator(start_case_id=1)
+        events = gen.generate_case(
+            "OrderFulfillment", start_time=datetime(2024, 1, 15, 10, 0)
+        )
+        for e in events:
+            assert "resource_id" in e
+            assert e["resource_id"] != ""
+
+    def test_resource_names_are_realistic(self):
+        """Resources should be names, not R1/R2"""
+        gen = CaseGenerator(start_case_id=1)
+        events = gen.generate_case(
+            "OrderFulfillment", start_time=datetime(2024, 1, 15, 10, 0)
+        )
+        non_system = [e for e in events if e["role"] != "System"]
+        for e in non_system:
+            assert e["resource"] != "R1"
+            assert e["resource"] != "R2"
+            assert "." in e["resource"]  # "Lastname F." format
+
+
+class TestBusinessHoursIntegration:
+    """Tests for A2: business hours in case generation"""
+
+    def test_weekday_events_in_business_hours(self):
+        random.seed(42)
+        gen = CaseGenerator(start_case_id=1)
+        # Start on a Tuesday at 10am — all manual activities should be in hours
+        events = gen.generate_case(
+            "LoanApplication", start_time=datetime(2024, 1, 16, 10, 0)
+        )
+        from business_calendar import BUSINESS_HOURS, AUTOMATED_ACTIVITIES
+        start_h, end_h = BUSINESS_HOURS["LoanApplication"]
+        for e in events:
+            activity = e["activity"].split(" - ")[0]  # strip anomaly/rework suffix
+            if activity in AUTOMATED_ACTIVITIES:
+                continue
+            hour = e["timestamp_start"].hour
+            assert start_h <= hour < end_h, (
+                f"{e['activity']} at hour {hour}, expected [{start_h}, {end_h})"
+            )
+
+    def test_no_weekend_manual_activities(self):
+        random.seed(42)
+        gen = CaseGenerator(start_case_id=1)
+        # Generate many cases to get good coverage
+        for _ in range(100):
+            events = gen.generate_case(
+                "InvoiceProcessing", start_time=datetime(2024, 1, 12, 10, 0)  # Friday
+            )
+            from business_calendar import AUTOMATED_ACTIVITIES
+            for e in events:
+                activity = e["activity"].split(" - ")[0]
+                if activity in AUTOMATED_ACTIVITIES:
+                    continue
+                weekday = e["timestamp_start"].weekday()
+                assert weekday < 5, (
+                    f"{e['activity']} on weekday {weekday} (Sat=5, Sun=6)"
+                )
+
+    def test_saturday_start_shifts_to_monday(self):
+        gen = CaseGenerator(start_case_id=1)
+        events = gen.generate_case(
+            "LoanApplication", start_time=datetime(2024, 1, 13, 10, 0)  # Saturday
+        )
+        first_event = events[0]
+        assert first_event["timestamp_start"].weekday() == 0  # Monday
+
+
 class TestGenerateMultipleCases:
     def test_generates_correct_count(self):
         random.seed(42)

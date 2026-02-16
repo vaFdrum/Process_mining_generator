@@ -54,8 +54,8 @@ class ProcessMiningGenerator:
         )
 
         # Оцениваем необходимое количество событий
-        # ~250 bytes per row without padding comments (was 600 with random word salad)
-        avg_row_size = 250
+        # ~200 bytes per row (measured empirically)
+        avg_row_size = 200
         events_needed = int(target_bytes / avg_row_size)
 
         self.logger.info("Оценочный размер строки: %d байт", avg_row_size)
@@ -65,8 +65,10 @@ class ProcessMiningGenerator:
         time_per_process = 1800  # 30 минут на каждый процесс максимум
         estimated_cases_per_minute = 1000  # Оценочная скорость генерации
 
+        # ~6 events per case on average (measured empirically)
+        avg_events_per_case = 6
         process_distribution = distribute_processes(
-            self.config["process_distribution"], events_needed // 8
+            self.config["process_distribution"], events_needed // avg_events_per_case
         )
 
         # Перераспределяем ограничение по времени

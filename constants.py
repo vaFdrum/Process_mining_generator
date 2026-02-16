@@ -136,6 +136,49 @@ PROCESS_DEPARTMENTS = {
     "HRRecruitment": ["HR"],
 }
 
+# Реалистичные комментарии по процессам
+PROCESS_COMMENTS = {
+    "OrderFulfillment": [
+        "Standard delivery", "Express shipping requested", "Gift wrapping added",
+        "Customer called to confirm", "Address verified", "Partial shipment approved",
+        "Insurance added", "Fragile handling required", "Signature required on delivery",
+        "Bulk order discount applied", "Return label included", "Tracking number sent",
+        "Warehouse notified", "Stock reserved", "Priority processing",
+        "Customer loyalty discount", "Free shipping applied", "Weekend delivery",
+    ],
+    "CustomerSupport": [
+        "Customer reports login issue", "Password reset requested", "Billing inquiry",
+        "Product defect reported", "Refund requested", "Feature request submitted",
+        "Account locked due to failed attempts", "Subscription cancellation",
+        "Technical assistance needed", "Escalated per SLA breach",
+        "Customer satisfied with resolution", "Follow-up scheduled",
+        "Knowledge base article shared", "Remote session conducted",
+    ],
+    "LoanApplication": [
+        "First-time applicant", "Existing customer refinancing", "Pre-approved offer",
+        "Additional documents required", "Employment verification pending",
+        "Credit score above threshold", "Collateral assessment completed",
+        "Co-signer information collected", "Income verification in progress",
+        "Debt-to-income ratio acceptable", "Property appraisal scheduled",
+        "Rate lock requested", "Terms negotiation completed",
+    ],
+    "InvoiceProcessing": [
+        "PO number verified", "Three-way match completed", "Duplicate check passed",
+        "Tax calculation verified", "Early payment discount available",
+        "Currency conversion applied", "Multi-line invoice", "Recurring invoice",
+        "Vendor credit applied", "Budget code assigned", "Approval threshold met",
+        "GL coding verified", "Payment terms NET 30",
+    ],
+    "HRRecruitment": [
+        "Internal referral", "Career fair candidate", "LinkedIn sourced",
+        "Senior position requires panel interview", "Relocation package discussed",
+        "Background check initiated", "References provided",
+        "Salary expectations within range", "Start date negotiated",
+        "Non-compete clause reviewed", "Skills assessment completed",
+        "Culture fit evaluation positive", "Remote work arrangement discussed",
+    ],
+}
+
 # Маппинг для обратной совместимости (если нужно)
 ACTIVITY_ALIASES = {
     "Approval": {

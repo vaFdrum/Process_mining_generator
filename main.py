@@ -54,7 +54,8 @@ class ProcessMiningGenerator:
         )
 
         # Оцениваем необходимое количество событий
-        avg_row_size = 600
+        # ~250 bytes per row without padding comments (was 600 with random word salad)
+        avg_row_size = 250
         events_needed = int(target_bytes / avg_row_size)
 
         self.logger.info("Оценочный размер строки: %d байт", avg_row_size)

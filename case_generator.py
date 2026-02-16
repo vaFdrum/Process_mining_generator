@@ -14,6 +14,7 @@ from utils import (
 )
 from constants import (
     get_activity_name, DEPARTMENTS, PROCESS_COST_RANGES, PROCESS_DEPARTMENTS,
+    PROCESS_COMMENTS,
 )
 from resource_pool import ResourcePool
 
@@ -225,11 +226,16 @@ class CaseGenerator:
         # Приоритет зависит от наличия аномалий/rework
         priority = self._get_priority_for_case(has_anomaly, has_rework)
 
+        # Comment is process-specific and meaningful
+        comments = PROCESS_COMMENTS.get(process_name, [""])
+        comment = random.choice(comments)
+
         return {
             "user_id": f"user_{random.randint(1, 5000)}",
             "department": department,
             "priority": priority,
             "cost": cost,
+            "comment": comment,
         }
 
     def _get_priority_for_case(

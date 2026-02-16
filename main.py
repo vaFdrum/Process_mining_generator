@@ -38,7 +38,7 @@ class ProcessMiningGenerator:
         os.makedirs(self.config["output_dir"], exist_ok=True)
 
     def generate_data(self):
-        """Генерация данных с ограничением максимального количества кейсов на процесс"""
+        """Адаптивная генерация: батчами до достижения целевого размера файла"""
         self.logger.info(
             "Запуск генерации %.1fGB данных...", self.config["target_size_gb"]
         )
@@ -47,122 +47,94 @@ class ProcessMiningGenerator:
         self.create_output_directory()
         self.check_disk_space(self.config["target_size_gb"])
 
-        target_bytes = self.config["target_size_gb"] * 1024 * 1024 * 1024
+        target_bytes = int(self.config["target_size_gb"] * 1024 * 1024 * 1024)
         size_str = str(self.config["target_size_gb"]).replace(".", "_")
         final_filename = os.path.join(
             self.config["output_dir"], f"process_log_{size_str}GB.csv"
         )
 
-        # Оцениваем необходимое количество событий
-        # ~200 bytes per row (measured empirically)
-        avg_row_size = 200
-        events_needed = int(target_bytes / avg_row_size)
-
-        self.logger.info("Оценочный размер строки: %d байт", avg_row_size)
-        self.logger.info("Необходимо событий: %d", events_needed)
-
-        # Распределяем события по процессам с ограничением максимума
-        time_per_process = 1800  # 30 минут на каждый процесс максимум
-        estimated_cases_per_minute = 1000  # Оценочная скорость генерации
-
-        # ~6 events per case on average (measured empirically)
-        avg_events_per_case = 6
-        process_distribution = distribute_processes(
-            self.config["process_distribution"], events_needed // avg_events_per_case
-        )
-
-        # Перераспределяем ограничение по времени
-        for process in process_distribution:
-            max_cases_for_process = min(
-                process_distribution[process],
-                estimated_cases_per_minute * time_per_process,
-            )
-            if max_cases_for_process < process_distribution[process]:
-                self.logger.warning(
-                    "Ограничиваем %s с %d до %d кейсов (лимит времени)",
-                    process,
-                    process_distribution[process],
-                    max_cases_for_process,
-                )
-                process_distribution[process] = max_cases_for_process
+        start_date = datetime.strptime(self.config["start_date"], "%Y-%m-%d")
+        time_range_days = self.config.get("time_range_days", 365 * 2)
+        processes = list(self.config["process_distribution"].keys())
 
         total_events = 0
         total_cases = 0
-        start_date = datetime.strptime(self.config["start_date"], "%Y-%m-%d")
-        time_range_days = self.config.get("time_range_days", 365 * 2)
-
+        first_chunk = True
         start_time = time.time()
 
-        # Запускаем общий прогресс-бар
-        total_events_planned = (
-            sum(process_distribution.values()) * 8
-        )  # Примерно 8 событий на кейс
-        self.logger.start_progress(total_events_planned, "Общая генерация событий")
+        # Начальная оценка: ~200 байт на строку, ~6 событий на кейс
+        avg_row_size = 200
+        estimated_total_cases = max(100, int(target_bytes / avg_row_size / 6))
+        batch_cases = max(100, min(10000, estimated_total_cases // 4))
 
-        # Генерируем и сохраняем чанками
-        first_chunk = True
-        for process_name, num_cases in process_distribution.items():
-            if num_cases <= 0:
-                continue
+        # Прогресс-бар на целевое количество событий
+        estimated_total_events = int(target_bytes / avg_row_size)
+        self.logger.start_progress(estimated_total_events, "Генерация событий")
 
-            self.logger.info("Генерация для процесса: %s", process_name)
-            self.logger.info("Кейсов: %d", num_cases)
+        while True:
+            # Проверяем текущий размер файла
+            if not first_chunk:
+                current_size = os.path.getsize(final_filename)
+                if current_size >= target_bytes:
+                    break
 
-            # Прогресс-бар для текущего процесса
-            process_start_time = time.time()
-            cases_generated = 0
-            batch_size = 10000  # Размер батча для генерации
+                # Пересчитываем avg_row_size по реальным данным
+                avg_row_size = current_size / total_events
+                remaining_bytes = target_bytes - current_size
+                remaining_events = int(remaining_bytes / avg_row_size)
+                remaining_cases = max(1, remaining_events // 6)
 
-            while cases_generated < num_cases:
-                current_batch = min(batch_size, num_cases - cases_generated)
+                # Адаптивный размер батча: крупнее в начале, точнее к концу
+                fill_ratio = current_size / target_bytes
+                if fill_ratio > 0.95:
+                    batch_cases = min(remaining_cases, 1000)
+                elif fill_ratio > 0.80:
+                    batch_cases = min(remaining_cases, 5000)
+                else:
+                    batch_cases = min(remaining_cases, 10000)
 
-                process_events = self.generator.generate_multiple_cases(
-                    process_name=process_name,
-                    num_cases=current_batch,
-                    start_time=start_date
-                    + timedelta(days=random.randint(0, time_range_days)),
-                    anomaly_rate=self.config["anomaly_rate"],
-                    rework_rate=self.config["rework_rate"],
-                )
+                if batch_cases <= 0:
+                    break
 
-                # Сохраняем батч
-                mode = "a" if not first_chunk else "w"
-                self.csv_writer.write_events_to_csv(
-                    process_events, final_filename, mode=mode
-                )
-                first_chunk = False
+            # Выбираем процесс по весам
+            process_name = random.choices(
+                processes,
+                weights=[self.config["process_distribution"][p] for p in processes],
+            )[0]
 
-                total_events += len(process_events)
-                cases_generated += current_batch
-                total_cases += current_batch
-
-                # Обновляем прогресс-бар
-                self.logger.update_progress(len(process_events))
-
-                # Логируем прогресс каждые 50к кейсов
-                if cases_generated % 50000 == 0:
-                    process_elapsed = time.time() - process_start_time
-                    self.logger.info(
-                        "Процесс %s: %d/%d кейсов (%.1f%%) за %.1f сек",
-                        process_name,
-                        cases_generated,
-                        num_cases,
-                        (cases_generated / num_cases) * 100,
-                        process_elapsed,
-                    )
-
-                # Очищаем память
-                del process_events
-
-            process_elapsed = time.time() - process_start_time
-            self.logger.info(
-                "Процесс %s завершен: %d кейсов за %.1f сек",
-                process_name,
-                cases_generated,
-                process_elapsed,
+            process_events = self.generator.generate_multiple_cases(
+                process_name=process_name,
+                num_cases=batch_cases,
+                start_time=start_date
+                + timedelta(days=random.randint(0, time_range_days)),
+                anomaly_rate=self.config["anomaly_rate"],
+                rework_rate=self.config["rework_rate"],
             )
 
-        # Закрываем прогресс-бар
+            mode = "w" if first_chunk else "a"
+            self.csv_writer.write_events_to_csv(
+                process_events, final_filename, mode=mode
+            )
+            first_chunk = False
+
+            total_events += len(process_events)
+            total_cases += batch_cases
+
+            self.logger.update_progress(len(process_events))
+
+            if total_cases % 50000 < batch_cases:
+                elapsed = time.time() - start_time
+                current_size = os.path.getsize(final_filename)
+                self.logger.info(
+                    "Прогресс: %.2f/%.2f GB | %d кейсов | %.0f сек",
+                    current_size / (1024**3),
+                    self.config["target_size_gb"],
+                    total_cases,
+                    elapsed,
+                )
+
+            del process_events
+
         self.logger.close_progress()
 
         # Сохраняем конфигурацию
@@ -182,6 +154,9 @@ class ProcessMiningGenerator:
         self.logger.info("Файл: %s", final_filename)
         self.logger.info("Целевой размер: %.1f GB", self.config["target_size_gb"])
         self.logger.info("Фактический размер: %.3f GB", actual_size_gb)
+        self.logger.info(
+            "Точность: %.1f%%", (actual_size_gb / self.config["target_size_gb"]) * 100
+        )
         self.logger.info("Кейсов: %d", total_cases)
         self.logger.info("Событий: %d", total_events)
         self.logger.info("Время выполнения: %.2f сек", total_time)
@@ -227,8 +202,7 @@ def main():
     if args.output:
         config["output_dir"] = args.output
     else:
-        size_label = str(config["target_size_gb"]).replace(".", "_")
-        config["output_dir"] = f"./dataset/"
+        config["output_dir"] = "./dataset/"
 
     # Запуск генерации
     start_time = time.time()

@@ -118,6 +118,24 @@ REWORK_ACTIVITIES = {
     ],
 }
 
+# Диапазоны стоимости по процессам
+PROCESS_COST_RANGES = {
+    "OrderFulfillment": (50, 15000),
+    "CustomerSupport": (0, 200),
+    "LoanApplication": (5000, 500000),
+    "InvoiceProcessing": (100, 50000),
+    "HRRecruitment": (2000, 20000),
+}
+
+# Типичные отделы по процессам
+PROCESS_DEPARTMENTS = {
+    "OrderFulfillment": ["Sales", "Operations"],
+    "CustomerSupport": ["Support", "IT"],
+    "LoanApplication": ["Finance"],
+    "InvoiceProcessing": ["Finance", "Operations"],
+    "HRRecruitment": ["HR"],
+}
+
 # Маппинг для обратной совместимости (если нужно)
 ACTIVITY_ALIASES = {
     "Approval": {

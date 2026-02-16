@@ -12,7 +12,9 @@ from utils import (
     get_anomaly_duration,
     get_rework_duration,
 )
-from constants import get_activity_name
+from constants import (
+    get_activity_name, DEPARTMENTS, PROCESS_COST_RANGES, PROCESS_DEPARTMENTS,
+)
 
 # Маппинг ролей — на уровне модуля, чтобы не пересоздавать при каждом вызове
 ROLE_MAPPING = {
@@ -173,6 +175,11 @@ class CaseGenerator:
         anomaly_added = False
         rework_added = False
 
+        # Case-level attributes: одинаковые для всех событий кейса
+        case_attrs = self._generate_case_attributes(
+            process_name, has_anomaly, has_rework
+        )
+
         for i, activity in enumerate(scenario):
             if i > 0:
                 waiting_time = get_waiting_time(process_name, current_time)
@@ -193,6 +200,7 @@ class CaseGenerator:
                 "anomaly": False,
                 "anomaly_type": None,
                 "rework": False,
+                **case_attrs,
             }
             events.append(normal_event)
             current_time += timedelta(minutes=duration)
@@ -215,6 +223,7 @@ class CaseGenerator:
                         "anomaly": True,
                         "anomaly_type": anomaly_type,
                         "rework": False,
+                        **case_attrs,
                     }
                     events.append(anomaly_event)
                     current_time += timedelta(minutes=anomaly_duration)
@@ -240,12 +249,54 @@ class CaseGenerator:
                         "anomaly": False,
                         "anomaly_type": None,
                         "rework": True,
+                        **case_attrs,
                     }
                     events.append(rework_event)
                     current_time += timedelta(minutes=rework_duration)
                     rework_added = True
 
         return events
+
+    def _generate_case_attributes(
+        self, process_name: str, has_anomaly: bool, has_rework: bool
+    ) -> Dict:
+        """Генерирует атрибуты уровня кейса (одинаковые для всех событий)"""
+        # Стоимость зависит от процесса
+        cost_min, cost_max = PROCESS_COST_RANGES.get(process_name, (10, 5000))
+        cost = round(random.uniform(cost_min, cost_max), 2)
+
+        # Отдел зависит от процесса
+        process_depts = PROCESS_DEPARTMENTS.get(process_name, DEPARTMENTS)
+        department = random.choice(process_depts)
+
+        # Приоритет зависит от наличия аномалий/rework
+        priority = self._get_priority_for_case(has_anomaly, has_rework)
+
+        return {
+            "user_id": f"user_{random.randint(1, 5000)}",
+            "department": department,
+            "priority": priority,
+            "cost": cost,
+        }
+
+    def _get_priority_for_case(
+        self, has_anomaly: bool, has_rework: bool
+    ) -> str:
+        """Приоритет кейса зависит от наличия проблем"""
+        if has_anomaly:
+            return random.choices(
+                ["medium", "high", "critical", "urgent"],
+                weights=[0.2, 0.4, 0.3, 0.1],
+            )[0]
+        if has_rework:
+            return random.choices(
+                ["medium", "high", "critical"],
+                weights=[0.4, 0.4, 0.2],
+            )[0]
+        return random.choices(
+            ["low", "medium", "high"],
+            weights=[0.4, 0.45, 0.15],
+        )[0]
 
     def _get_role_for_activity(self, activity: str, process_name: str) -> str:
         """Возвращает роль для активности в рамках процесса"""

@@ -7,6 +7,7 @@ import shutil
 from datetime import datetime, timedelta
 from case_generator import CaseGenerator
 from csv_writer import CSVWriter
+from resource_pool import ResourcePool
 from utils import distribute_processes
 from config import CONFIG_20GB, CONFIG_30GB, CONFIG_50GB, CONFIG_CUSTOM
 from logger import get_logger
@@ -16,7 +17,10 @@ class ProcessMiningGenerator:
     def __init__(self, config, logger):
         self.config = config
         self.logger = logger
-        self.generator = CaseGenerator(start_case_id=1, logger=logger)
+        self.resource_pool = ResourcePool()
+        self.generator = CaseGenerator(
+            start_case_id=1, logger=logger, resource_pool=self.resource_pool
+        )
         self.csv_writer = CSVWriter(logger)
 
     def check_disk_space(self, required_gb: float):

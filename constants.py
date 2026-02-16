@@ -5,7 +5,7 @@ PRIORITIES = ["low", "medium", "high", "critical", "urgent"]
 # Базовые fieldnames для CSV
 BASE_CSV_FIELDS = [
     "case_id", "timestamp_start", "timestamp_end", "process",
-    "activity", "duration_minutes", "role", "resource",
+    "activity", "duration_minutes", "role", "resource", "resource_id",
     "anomaly", "anomaly_type", "rework"
 ]
 

@@ -15,6 +15,7 @@ from utils import (
 from constants import (
     get_activity_name, DEPARTMENTS, PROCESS_COST_RANGES, PROCESS_DEPARTMENTS,
 )
+from resource_pool import ResourcePool
 
 # Маппинг ролей — на уровне модуля, чтобы не пересоздавать при каждом вызове
 ROLE_MAPPING = {
@@ -72,70 +73,14 @@ ROLE_MAPPING = {
     },
 }
 
-# Маппинг ресурсов — на уровне модуля
-RESOURCE_MAPPING = {
-    "OrderFulfillment": {
-        "Order Created": "System",
-        "Payment Processing": "Finance System",
-        "Payment Received": "Finance System",
-        "Payment Failed": "Finance System",
-        "Payment Retry": "Finance System",
-        "Pick Items": "R1",
-        "Pack Items": "R2",
-        "Quality Check": "R3",
-        "Ship Order": "External",
-        "Order Completed": "System",
-        "Cancelled": "System",
-    },
-    "CustomerSupport": {
-        "Ticket Created": "System",
-        "Initial Response": "Support System",
-        "Issue Investigation": "Support System",
-        "Solution Provided": "Support System",
-        "Ticket Closed": "System",
-        "Escalated": "Support System",
-        "Expert Review": "R4",
-        "Customer Feedback": "Support System",
-        "Additional Support": "Support System",
-    },
-    "LoanApplication": {
-        "Application Submitted": "System",
-        "Document Review": "R1",
-        "Credit Check": "Finance System",
-        "Loan Approval": "System",
-        "Funds Disbursed": "Finance System",
-        "Additional Info Requested": "System",
-        "Loan Rejected": "System",
-    },
-    "InvoiceProcessing": {
-        "Invoice Received": "System",
-        "Data Entry": "R1",
-        "Invoice Approval": "System",
-        "Payment Processed": "Finance System",
-        "Archived": "System",
-        "Validation Failed": "System",
-        "Correction": "R1",
-        "Invoice Rejected": "System",
-    },
-    "HRRecruitment": {
-        "Position Opened": "HR System",
-        "Application Review": "HR System",
-        "Interview": "R2",
-        "Offer Extended": "System",
-        "Hired": "HR System",
-        "Additional Interview": "R2",
-        "Candidate Rejected": "HR System",
-    },
-}
-
 _FALLBACK_ROLES = ["Clerk", "Manager", "System", "Analyst", "Specialist"]
-_FALLBACK_RESOURCES = ["System", "R1", "R2", "R3", "Auto", "External"]
 
 
 class CaseGenerator:
-    def __init__(self, start_case_id: int = 1, logger=None):
+    def __init__(self, start_case_id: int = 1, logger=None, resource_pool=None):
         self.current_case_id = start_case_id - 1
         self.logger = logger
+        self.resource_pool = resource_pool or ResourcePool()
 
     def _log(self, message: str, *args):
         """Логирование информации"""
@@ -186,7 +131,11 @@ class CaseGenerator:
                 current_time += timedelta(minutes=waiting_time)
 
             activity_name = get_activity_name(activity, process_name)
-            duration = get_activity_duration(activity_name, process_name, current_time)
+            role = self._get_role_for_activity(activity, process_name)
+            employee = self.resource_pool.get_employee(role)
+
+            base_duration = get_activity_duration(activity_name, process_name, current_time)
+            duration = max(1, int(base_duration * employee["efficiency"]))
 
             normal_event = {
                 "case_id": case_id,
@@ -195,8 +144,9 @@ class CaseGenerator:
                 "process": process_name,
                 "activity": activity,
                 "duration_minutes": duration,
-                "role": self._get_role_for_activity(activity, process_name),
-                "resource": self._get_resource_for_activity(activity, process_name),
+                "role": role,
+                "resource": employee["resource_name"],
+                "resource_id": employee["resource_id"],
                 "anomaly": False,
                 "anomaly_type": None,
                 "rework": False,
@@ -210,6 +160,7 @@ class CaseGenerator:
                 anomaly_type = get_anomaly_for_activity(activity_name)
                 if anomaly_type:
                     anomaly_duration = get_anomaly_duration(anomaly_type)
+                    anomaly_employee = self.resource_pool.get_employee("Specialist")
                     anomaly_event = {
                         "case_id": case_id,
                         "timestamp_start": current_time,
@@ -219,7 +170,8 @@ class CaseGenerator:
                         "activity": f"{activity} - {anomaly_type}",
                         "duration_minutes": anomaly_duration,
                         "role": "Specialist",
-                        "resource": "System",
+                        "resource": anomaly_employee["resource_name"],
+                        "resource_id": anomaly_employee["resource_id"],
                         "anomaly": True,
                         "anomaly_type": anomaly_type,
                         "rework": False,
@@ -234,6 +186,8 @@ class CaseGenerator:
                 rework_type = get_rework_for_activity(activity_name)
                 if rework_type:
                     rework_duration = get_rework_duration()
+                    rework_role = self._get_role_for_activity(activity, process_name)
+                    rework_employee = self.resource_pool.get_employee(rework_role)
                     rework_event = {
                         "case_id": case_id,
                         "timestamp_start": current_time,
@@ -242,10 +196,9 @@ class CaseGenerator:
                         "process": process_name,
                         "activity": f"{activity} - {rework_type}",
                         "duration_minutes": rework_duration,
-                        "role": self._get_role_for_activity(activity, process_name),
-                        "resource": self._get_resource_for_activity(
-                            activity, process_name
-                        ),
+                        "role": rework_role,
+                        "resource": rework_employee["resource_name"],
+                        "resource_id": rework_employee["resource_id"],
                         "anomaly": False,
                         "anomaly_type": None,
                         "rework": True,
@@ -303,13 +256,6 @@ class CaseGenerator:
         activity_name = get_activity_name(activity, process_name)
         return ROLE_MAPPING.get(process_name, {}).get(
             activity_name, random.choice(_FALLBACK_ROLES)
-        )
-
-    def _get_resource_for_activity(self, activity: str, process_name: str) -> str:
-        """Возвращает ресурс для активности в рамках процесса"""
-        activity_name = get_activity_name(activity, process_name)
-        return RESOURCE_MAPPING.get(process_name, {}).get(
-            activity_name, random.choice(_FALLBACK_RESOURCES)
         )
 
     def generate_multiple_cases(

@@ -12,16 +12,80 @@ from utils import (
     get_anomaly_duration,
     get_rework_duration,
 )
-from constants import get_activity_name
+from constants import (
+    get_activity_name, DEPARTMENTS, PROCESS_COST_RANGES, PROCESS_DEPARTMENTS,
+    PROCESS_COMMENTS,
+)
+from resource_pool import ResourcePool
+from business_calendar import adjust_to_business_hours
+
+# Маппинг ролей — на уровне модуля, чтобы не пересоздавать при каждом вызове
+ROLE_MAPPING = {
+    "OrderFulfillment": {
+        "Order Created": "Clerk",
+        "Payment Processing": "System",
+        "Payment Received": "System",
+        "Payment Failed": "System",
+        "Payment Retry": "System",
+        "Pick Items": "Clerk",
+        "Pack Items": "Clerk",
+        "Quality Check": "Specialist",
+        "Ship Order": "Coordinator",
+        "Order Completed": "System",
+        "Cancelled": "Manager",
+    },
+    "CustomerSupport": {
+        "Ticket Created": "System",
+        "Initial Response": "Support Agent",
+        "Issue Investigation": "Support Agent",
+        "Solution Provided": "Support Agent",
+        "Ticket Closed": "System",
+        "Escalated": "Manager",
+        "Expert Review": "Specialist",
+        "Customer Feedback": "Support Agent",
+        "Additional Support": "Support Agent",
+    },
+    "LoanApplication": {
+        "Application Submitted": "Clerk",
+        "Document Review": "Analyst",
+        "Credit Check": "System",
+        "Loan Approval": "Manager",
+        "Funds Disbursed": "System",
+        "Additional Info Requested": "Analyst",
+        "Loan Rejected": "Manager",
+    },
+    "InvoiceProcessing": {
+        "Invoice Received": "Clerk",
+        "Data Entry": "Clerk",
+        "Invoice Approval": "Manager",
+        "Payment Processed": "System",
+        "Archived": "System",
+        "Validation Failed": "Analyst",
+        "Correction": "Clerk",
+        "Invoice Rejected": "Manager",
+    },
+    "HRRecruitment": {
+        "Position Opened": "HR Manager",
+        "Application Review": "HR Manager",
+        "Interview": "HR Manager",
+        "Offer Extended": "Manager",
+        "Hired": "System",
+        "Additional Interview": "HR Manager",
+        "Candidate Rejected": "HR Manager",
+    },
+}
+
+_FALLBACK_ROLES = ["Clerk", "Manager", "System", "Analyst", "Specialist"]
 
 
 class CaseGenerator:
-    def __init__(self, start_case_id: int = 1, logger=None):
+    def __init__(self, start_case_id: int = 1, logger=None, resource_pool=None):
         self.current_case_id = start_case_id - 1
         self.logger = logger
+        self.resource_pool = resource_pool or ResourcePool()
 
-    def _log_debug(self, message: str, *args):
-        """Логирование отладочной информации"""
+    def _log(self, message: str, *args):
+        """Логирование информации"""
         if self.logger:
             self.logger.info(message, *args)
 
@@ -58,13 +122,28 @@ class CaseGenerator:
         anomaly_added = False
         rework_added = False
 
+        # Case-level attributes: одинаковые для всех событий кейса
+        case_attrs = self._generate_case_attributes(
+            process_name, has_anomaly, has_rework
+        )
+
         for i, activity in enumerate(scenario):
             if i > 0:
                 waiting_time = get_waiting_time(process_name, current_time)
                 current_time += timedelta(minutes=waiting_time)
 
             activity_name = get_activity_name(activity, process_name)
-            duration = get_activity_duration(activity_name, process_name, current_time)
+
+            # Сдвигаем в рабочие часы (автоматические активности не сдвигаются)
+            current_time = adjust_to_business_hours(
+                current_time, process_name, activity_name
+            )
+
+            role = self._get_role_for_activity(activity, process_name)
+            employee = self.resource_pool.get_employee(role)
+
+            base_duration = get_activity_duration(activity_name, process_name, current_time)
+            duration = max(1, int(base_duration * employee["efficiency"]))
 
             normal_event = {
                 "case_id": case_id,
@@ -73,11 +152,13 @@ class CaseGenerator:
                 "process": process_name,
                 "activity": activity,
                 "duration_minutes": duration,
-                "role": self._get_role_for_activity(activity, process_name),
-                "resource": self._get_resource_for_activity(activity, process_name),
+                "role": role,
+                "resource": employee["resource_name"],
+                "resource_id": employee["resource_id"],
                 "anomaly": False,
                 "anomaly_type": None,
                 "rework": False,
+                **case_attrs,
             }
             events.append(normal_event)
             current_time += timedelta(minutes=duration)
@@ -87,6 +168,7 @@ class CaseGenerator:
                 anomaly_type = get_anomaly_for_activity(activity_name)
                 if anomaly_type:
                     anomaly_duration = get_anomaly_duration(anomaly_type)
+                    anomaly_employee = self.resource_pool.get_employee("Specialist")
                     anomaly_event = {
                         "case_id": case_id,
                         "timestamp_start": current_time,
@@ -96,10 +178,12 @@ class CaseGenerator:
                         "activity": f"{activity} - {anomaly_type}",
                         "duration_minutes": anomaly_duration,
                         "role": "Specialist",
-                        "resource": "System",
+                        "resource": anomaly_employee["resource_name"],
+                        "resource_id": anomaly_employee["resource_id"],
                         "anomaly": True,
                         "anomaly_type": anomaly_type,
                         "rework": False,
+                        **case_attrs,
                     }
                     events.append(anomaly_event)
                     current_time += timedelta(minutes=anomaly_duration)
@@ -110,6 +194,8 @@ class CaseGenerator:
                 rework_type = get_rework_for_activity(activity_name)
                 if rework_type:
                     rework_duration = get_rework_duration()
+                    rework_role = self._get_role_for_activity(activity, process_name)
+                    rework_employee = self.resource_pool.get_employee(rework_role)
                     rework_event = {
                         "case_id": case_id,
                         "timestamp_start": current_time,
@@ -118,13 +204,13 @@ class CaseGenerator:
                         "process": process_name,
                         "activity": f"{activity} - {rework_type}",
                         "duration_minutes": rework_duration,
-                        "role": self._get_role_for_activity(activity, process_name),
-                        "resource": self._get_resource_for_activity(
-                            activity, process_name
-                        ),
+                        "role": rework_role,
+                        "resource": rework_employee["resource_name"],
+                        "resource_id": rework_employee["resource_id"],
                         "anomaly": False,
                         "anomaly_type": None,
                         "rework": True,
+                        **case_attrs,
                     }
                     events.append(rework_event)
                     current_time += timedelta(minutes=rework_duration)
@@ -132,156 +218,57 @@ class CaseGenerator:
 
         return events
 
+    def _generate_case_attributes(
+        self, process_name: str, has_anomaly: bool, has_rework: bool
+    ) -> Dict:
+        """Генерирует атрибуты уровня кейса (одинаковые для всех событий)"""
+        # Стоимость зависит от процесса
+        cost_min, cost_max = PROCESS_COST_RANGES.get(process_name, (10, 5000))
+        cost = round(random.uniform(cost_min, cost_max), 2)
+
+        # Отдел зависит от процесса
+        process_depts = PROCESS_DEPARTMENTS.get(process_name, DEPARTMENTS)
+        department = random.choice(process_depts)
+
+        # Приоритет зависит от наличия аномалий/rework
+        priority = self._get_priority_for_case(has_anomaly, has_rework)
+
+        # Comment is process-specific and meaningful
+        comments = PROCESS_COMMENTS.get(process_name, [""])
+        comment = random.choice(comments)
+
+        return {
+            "user_id": f"user_{random.randint(1, 5000)}",
+            "department": department,
+            "priority": priority,
+            "cost": cost,
+            "comment": comment,
+        }
+
+    def _get_priority_for_case(
+        self, has_anomaly: bool, has_rework: bool
+    ) -> str:
+        """Приоритет кейса зависит от наличия проблем"""
+        if has_anomaly:
+            return random.choices(
+                ["medium", "high", "critical", "urgent"],
+                weights=[0.2, 0.4, 0.3, 0.1],
+            )[0]
+        if has_rework:
+            return random.choices(
+                ["medium", "high", "critical"],
+                weights=[0.4, 0.4, 0.2],
+            )[0]
+        return random.choices(
+            ["low", "medium", "high"],
+            weights=[0.4, 0.45, 0.15],
+        )[0]
+
     def _get_role_for_activity(self, activity: str, process_name: str) -> str:
-        """
-        Возвращает соответствующую роль для активности в рамках процесса
-
-        Args:
-            activity: Название активности
-            process_name: Название процесса
-
-        Returns:
-            Роль для активности
-        """
-        # Маппинг ролей для разных процессов и активностей
-        role_mapping = {
-            "OrderFulfillment": {
-                "Order Created": "Clerk",
-                "Payment Processing": "System",
-                "Payment Received": "System",
-                "Payment Failed": "System",
-                "Payment Retry": "System",
-                "Pick Items": "Clerk",
-                "Pack Items": "Clerk",
-                "Quality Check": "Specialist",
-                "Ship Order": "Coordinator",
-                "Order Completed": "System",
-                "Cancelled": "Manager",
-            },
-            "CustomerSupport": {
-                "Ticket Created": "System",
-                "Initial Response": "Support Agent",
-                "Issue Investigation": "Support Agent",
-                "Solution Provided": "Support Agent",
-                "Ticket Closed": "System",
-                "Escalated": "Manager",
-                "Expert Review": "Specialist",
-                "Customer Feedback": "Support Agent",
-                "Additional Support": "Support Agent",
-            },
-            "LoanApplication": {
-                "Application Submitted": "Clerk",
-                "Document Review": "Analyst",
-                "Credit Check": "System",
-                "Loan Approval": "Manager",
-                "Funds Disbursed": "System",
-                "Additional Info Requested": "Analyst",
-                "Loan Rejected": "Manager",
-            },
-            "InvoiceProcessing": {
-                "Invoice Received": "Clerk",
-                "Data Entry": "Clerk",
-                "Invoice Approval": "Manager",
-                "Payment Processed": "System",
-                "Archived": "System",
-                "Validation Failed": "Analyst",
-                "Correction": "Clerk",
-                "Invoice Rejected": "Manager",
-            },
-            "HRRecruitment": {
-                "Position Opened": "HR Manager",
-                "Application Review": "HR Manager",
-                "Interview": "HR Manager",
-                "Offer Extended": "Manager",
-                "Hired": "System",
-                "Additional Interview": "HR Manager",
-                "Candidate Rejected": "HR Manager",
-            },
-        }
-
-        # Получаем правильное имя активности с учетом контекста
+        """Возвращает роль для активности в рамках процесса"""
         activity_name = get_activity_name(activity, process_name)
-
-        # Возвращаем специфичную роль или случайную из общего пула
-        return role_mapping.get(process_name, {}).get(
-            activity_name,
-            random.choice(["Clerk", "Manager", "System", "Analyst", "Specialist"]),
-        )
-
-    def _get_resource_for_activity(self, activity: str, process_name: str) -> str:
-        """
-        Возвращает соответствующий ресурс для активности в рамках процесса
-
-        Args:
-            activity: Название активности
-            process_name: Название процесса
-
-        Returns:
-            Ресурс для активности
-        """
-        # Маппинг ресурсов для разных процессов и активностей
-        resource_mapping = {
-            "OrderFulfillment": {
-                "Order Created": "System",
-                "Payment Processing": "Finance System",
-                "Payment Received": "Finance System",
-                "Payment Failed": "Finance System",
-                "Payment Retry": "Finance System",
-                "Pick Items": "R1",
-                "Pack Items": "R2",
-                "Quality Check": "R3",
-                "Ship Order": "External",
-                "Order Completed": "System",
-                "Cancelled": "System",
-            },
-            "CustomerSupport": {
-                "Ticket Created": "System",
-                "Initial Response": "Support System",
-                "Issue Investigation": "Support System",
-                "Solution Provided": "Support System",
-                "Ticket Closed": "System",
-                "Escalated": "Support System",
-                "Expert Review": "R4",
-                "Customer Feedback": "Support System",
-                "Additional Support": "Support System",
-            },
-            "LoanApplication": {
-                "Application Submitted": "System",
-                "Document Review": "R1",
-                "Credit Check": "Finance System",
-                "Loan Approval": "System",
-                "Funds Disbursed": "Finance System",
-                "Additional Info Requested": "System",
-                "Loan Rejected": "System",
-            },
-            "InvoiceProcessing": {
-                "Invoice Received": "System",
-                "Data Entry": "R1",
-                "Invoice Approval": "System",
-                "Payment Processed": "Finance System",
-                "Archived": "System",
-                "Validation Failed": "System",
-                "Correction": "R1",
-                "Invoice Rejected": "System",
-            },
-            "HRRecruitment": {
-                "Position Opened": "HR System",
-                "Application Review": "HR System",
-                "Interview": "R2",
-                "Offer Extended": "System",
-                "Hired": "HR System",
-                "Additional Interview": "R2",
-                "Candidate Rejected": "HR System",
-            },
-        }
-
-        # Получаем правильное имя активности с учетом контекста
-        activity_name = get_activity_name(activity, process_name)
-
-        # Возвращаем специфичный ресурс или случайный из общего пула
-        return resource_mapping.get(process_name, {}).get(
-            activity_name,
-            random.choice(["System", "R1", "R2", "R3", "Auto", "External"]),
+        return ROLE_MAPPING.get(process_name, {}).get(
+            activity_name, random.choice(_FALLBACK_ROLES)
         )
 
     def generate_multiple_cases(
@@ -330,48 +317,7 @@ class CaseGenerator:
 
             # Прогресс для больших генераций
             if num_cases > 10000 and (i + 1) % 10000 == 0:
-                print(f"   📦 Сгенерировано {i + 1}/{num_cases} кейсов")
-
-        return all_events
-
-    def generate_cases_for_multiple_processes(
-        self,
-        process_distribution: Dict[str, int],
-        base_start_time: Optional[datetime] = None,
-        anomaly_rate: float = 0.03,
-        rework_rate: float = 0.08,
-    ) -> List[Dict]:
-        """
-        Генерирует кейсы для нескольких процессов согласно распределению
-
-        Args:
-            process_distribution: Словарь {process_name: num_cases}
-            base_start_time: Базовое время начала
-            anomaly_rate: Вероятность аномалии
-            rework_rate: Вероятность переделки
-
-        Returns:
-            Список всех событий всех кейсов
-        """
-        all_events = []
-        base_time = base_start_time or (
-            datetime.now() - timedelta(days=random.randint(0, 730))
-        )
-
-        for process_name, num_cases in process_distribution.items():
-            if num_cases > 0:
-                print(f"🔧 Генерация {num_cases} кейсов для процесса: {process_name}")
-
-                process_events = self.generate_multiple_cases(
-                    process_name=process_name,
-                    num_cases=num_cases,
-                    start_time=base_time,
-                    anomaly_rate=anomaly_rate,
-                    rework_rate=rework_rate,
-                )
-
-                all_events.extend(process_events)
-                print(f"   ✅ Сгенерировано {len(process_events)} событий")
+                self._log("Сгенерировано %d/%d кейсов", i + 1, num_cases)
 
         return all_events
 

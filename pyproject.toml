@@ -1,0 +1,19 @@
+[project]
+name = "process-mining-generator"
+version = "1.0.0"
+description = "Synthetic event log generator for process mining"
+requires-python = ">=3.8"
+license = {text = "MIT"}
+
+dependencies = [
+    "tqdm>=4.60.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.scripts]
+generate = "main:main"

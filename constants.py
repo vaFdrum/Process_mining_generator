@@ -1,31 +1,3 @@
-from enum import Enum
-
-class Role(Enum):
-    CLERK = "Clerk"
-    MANAGER = "Manager"
-    SYSTEM = "System"
-    ANALYST = "Analyst"
-    SPECIALIST = "Specialist"
-    AUDITOR = "Auditor"
-    COORDINATOR = "Coordinator"
-    SUPPORT_AGENT = "Support Agent"
-    LOAN_OFFICER = "Loan Officer"
-    HR_MANAGER = "HR Manager"
-
-class Resource(Enum):
-    R1 = "R1"
-    R2 = "R2"
-    R3 = "R3"
-    R4 = "R4"
-    R5 = "R5"
-    SYSTEM = "System"
-    AUTO = "Auto"
-    EXTERNAL = "External"
-    AI_PROCESSOR = "AI_Processor"
-    SUPPORT_SYSTEM = "Support System"
-    FINANCE_SYSTEM = "Finance System"
-    HR_SYSTEM = "HR System"
-
 # Константы для CSVWriter
 DEPARTMENTS = ["IT", "HR", "Finance", "Operations", "Sales", "Marketing", "Support"]
 PRIORITIES = ["low", "medium", "high", "critical", "urgent"]
@@ -33,7 +5,7 @@ PRIORITIES = ["low", "medium", "high", "critical", "urgent"]
 # Базовые fieldnames для CSV
 BASE_CSV_FIELDS = [
     "case_id", "timestamp_start", "timestamp_end", "process",
-    "activity", "duration_minutes", "role", "resource",
+    "activity", "duration_minutes", "role", "resource", "resource_id",
     "anomaly", "anomaly_type", "rework"
 ]
 
@@ -47,93 +19,55 @@ EXTENDED_CSV_FIELDS = [
 # Полный список fieldnames
 CSV_FIELD_NAMES = BASE_CSV_FIELDS + EXTENDED_CSV_FIELDS
 
-
-ROLES = [role.value for role in Role]
-RESOURCES = [resource.value for resource in Resource]
-
+# Длительности активностей для реальных процессов (минуты: min, max)
 ACTIVITY_DURATIONS = {
-    # PaymentCollection
-    "Payment Requested": (1, 5),
-    "Payment Verification": (5, 30),
+    # OrderFulfillment
+    "Order Created": (1, 10),
+    "Payment Processing": (5, 30),
     "Payment Received": (1, 5),
-    "Payment Confirmed": (1, 5),
-    "Payment Archived": (1, 5),
     "Payment Failed": (1, 5),
     "Payment Retry": (5, 15),
-    "Payment Rejected": (1, 5),
-    # MarketingCampaign
-    "Campaign Created": (15, 60),
-    "Target Audience Defined": (30, 120),
-    "Content Prepared": (60, 240),
-    "Campaign Launched": (5, 30),
-    "Results Analyzed": (120, 480),
-    "Campaign Closed": (5, 15),
-    "MarketingCampaignPerformance Issues": (30, 180),
-    "Campaign Optimized": (60, 240),
-    "Campaign Cancelled": (5, 15),
-    # SalesProcess
-    "Lead Qualified": (10, 60),
-    "Needs Analysis": (30, 180),
-    "Proposal Sent": (60, 240),
-    "Negotiation": (120, 480),
-    "SalesProcessContract Signed": (5, 30),
-    "Deal Closed": (5, 15),
-    "Objections Handled": (30, 120),
-    "Proposal Rejected": (5, 15),
-    "Deal Lost": (5, 15),
-    # ContractManagement
-    "Contract Drafted": (60, 240),
-    "Legal Review": (120, 480),
-    "Contract Approved": (30, 120),
-    "Contract Signed": (5, 30),
-    "Contract Activated": (1, 5),
-    "Contract Archived": (1, 5),
-    "Revisions Requested": (30, 120),
-    "Contract Revised": (60, 180),
-    "Contract Rejected": (5, 15),
-    # VendorManagement
-    "Vendor Identified": (30, 120),
-    "Vendor Evaluation": (120, 480),
-    "Vendor Approved": (30, 120),
-    "Contract Negotiation": (180, 720),
-    "Vendor Onboarded": (60, 240),
-    "Vendor Active": (1, 5),
-    "Additional Information Requested": (15, 60),
-    "Vendor Rejected": (5, 15),
-    # AccountsPayable
+    "Pick Items": (15, 120),
+    "Pack Items": (10, 60),
+    "Quality Check": (10, 45),
+    "Ship Order": (30, 180),
+    "Order Completed": (1, 5),
+    "Cancelled": (1, 10),
+    # CustomerSupport
+    "Ticket Created": (1, 5),
+    "Initial Response": (15, 120),
+    "Issue Investigation": (30, 240),
+    "Solution Provided": (15, 90),
+    "Ticket Closed": (1, 5),
+    "Escalated": (5, 30),
+    "Expert Review": (60, 360),
+    "Customer Feedback": (5, 60),
+    "Additional Support": (15, 120),
+    # LoanApplication
+    "Application Submitted": (5, 30),
+    "Document Review": (30, 240),
+    "Credit Check": (15, 120),
+    "Loan Approval": (30, 180),
+    "Funds Disbursed": (10, 60),
+    "Additional Info Requested": (15, 60),
+    "Loan Rejected": (10, 30),
+    # InvoiceProcessing
     "Invoice Received": (1, 5),
-    "Invoice Validation": (10, 60),
-    "Approval Requested": (5, 30),
-    "Payment Approved": (15, 60),
-    "Payment Scheduled": (5, 15),
-    "Payment Executed": (1, 5),
-    "Payment Verified": (1, 5),
-    "AccountsPayableIssues Identified": (30, 120),
-    "AccountsPayableIssues Resolved": (60, 240),
+    "Data Entry": (10, 60),
+    "Invoice Approval": (15, 120),
+    "Payment Processed": (5, 30),
+    "Archived": (1, 5),
+    "Validation Failed": (5, 30),
+    "Correction": (15, 90),
     "Invoice Rejected": (5, 15),
-    # Onboarding
-    "Offer Accepted": (1, 5),
-    "Background Check": (1440, 4320),  # 1-3 дня
-    "Paperwork Completed": (60, 240),
-    "Equipment Assigned": (30, 120),
-    "Training Scheduled": (15, 60),
-    "Onboarding Completed": (5, 15),
-    "Employee Active": (1, 5),
-    "Issues Identified": (60, 240),
-    "Issues Resolved": (120, 480),
-    "Background Check Failed": (5, 15),
-    "Offer Revoked": (5, 15),
-    # PerformanceManagement
-    "Goals Set": (60, 180),
-    "Regular Check-ins": (30, 120),
-    "Performance Review": (120, 360),
-    "Feedback Provided": (30, 120),
-    "Development Plan Created": (60, 240),
-    "Review Completed": (5, 15),
-    "Performance Issues": (60, 180),
-    "Performance Improvement Plan": (120, 360),
-    "Promotion Recommended": (30, 120),
-    "Promotion Approved": (15, 60),
+    # HRRecruitment
+    "Position Opened": (30, 120),
+    "Application Review": (20, 90),
+    "Interview": (30, 90),
+    "Offer Extended": (15, 60),
+    "Hired": (5, 15),
+    "Additional Interview": (30, 90),
+    "Candidate Rejected": (5, 15),
 }
 
 ANOMALY_DURATIONS = {
@@ -181,6 +115,67 @@ REWORK_ACTIVITIES = {
         "Document Review",
         "Application Review",
         "Credit Check",
+    ],
+}
+
+# Диапазоны стоимости по процессам
+PROCESS_COST_RANGES = {
+    "OrderFulfillment": (50, 15000),
+    "CustomerSupport": (0, 200),
+    "LoanApplication": (5000, 500000),
+    "InvoiceProcessing": (100, 50000),
+    "HRRecruitment": (2000, 20000),
+}
+
+# Типичные отделы по процессам
+PROCESS_DEPARTMENTS = {
+    "OrderFulfillment": ["Sales", "Operations"],
+    "CustomerSupport": ["Support", "IT"],
+    "LoanApplication": ["Finance"],
+    "InvoiceProcessing": ["Finance", "Operations"],
+    "HRRecruitment": ["HR"],
+}
+
+# Реалистичные комментарии по процессам
+PROCESS_COMMENTS = {
+    "OrderFulfillment": [
+        "Standard delivery", "Express shipping requested", "Gift wrapping added",
+        "Customer called to confirm", "Address verified", "Partial shipment approved",
+        "Insurance added", "Fragile handling required", "Signature required on delivery",
+        "Bulk order discount applied", "Return label included", "Tracking number sent",
+        "Warehouse notified", "Stock reserved", "Priority processing",
+        "Customer loyalty discount", "Free shipping applied", "Weekend delivery",
+    ],
+    "CustomerSupport": [
+        "Customer reports login issue", "Password reset requested", "Billing inquiry",
+        "Product defect reported", "Refund requested", "Feature request submitted",
+        "Account locked due to failed attempts", "Subscription cancellation",
+        "Technical assistance needed", "Escalated per SLA breach",
+        "Customer satisfied with resolution", "Follow-up scheduled",
+        "Knowledge base article shared", "Remote session conducted",
+    ],
+    "LoanApplication": [
+        "First-time applicant", "Existing customer refinancing", "Pre-approved offer",
+        "Additional documents required", "Employment verification pending",
+        "Credit score above threshold", "Collateral assessment completed",
+        "Co-signer information collected", "Income verification in progress",
+        "Debt-to-income ratio acceptable", "Property appraisal scheduled",
+        "Rate lock requested", "Terms negotiation completed",
+    ],
+    "InvoiceProcessing": [
+        "PO number verified", "Three-way match completed", "Duplicate check passed",
+        "Tax calculation verified", "Early payment discount available",
+        "Currency conversion applied", "Multi-line invoice", "Recurring invoice",
+        "Vendor credit applied", "Budget code assigned", "Approval threshold met",
+        "GL coding verified", "Payment terms NET 30",
+    ],
+    "HRRecruitment": [
+        "Internal referral", "Career fair candidate", "LinkedIn sourced",
+        "Senior position requires panel interview", "Relocation package discussed",
+        "Background check initiated", "References provided",
+        "Salary expectations within range", "Start date negotiated",
+        "Non-compete clause reviewed", "Skills assessment completed",
+        "Culture fit evaluation positive", "Remote work arrangement discussed",
     ],
 }
 

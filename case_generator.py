@@ -13,11 +13,11 @@ from utils import (
     get_rework_duration,
 )
 from constants import (
-    get_activity_name, DEPARTMENTS, PROCESS_COST_RANGES, PROCESS_DEPARTMENTS,
+    DEPARTMENTS, PROCESS_COST_RANGES, PROCESS_DEPARTMENTS,
     PROCESS_COMMENTS,
 )
 from resource_pool import ResourcePool
-from business_calendar import adjust_to_business_hours
+from business_calendar import adjust_to_business_hours, add_working_minutes
 
 # Маппинг ролей — на уровне модуля, чтобы не пересоздавать при каждом вызове
 ROLE_MAPPING = {
@@ -132,23 +132,24 @@ class CaseGenerator:
                 waiting_time = get_waiting_time(process_name, current_time)
                 current_time += timedelta(minutes=waiting_time)
 
-            activity_name = get_activity_name(activity, process_name)
-
             # Сдвигаем в рабочие часы (автоматические активности не сдвигаются)
             current_time = adjust_to_business_hours(
-                current_time, process_name, activity_name
+                current_time, process_name, activity
             )
 
             role = self._get_role_for_activity(activity, process_name)
             employee = self.resource_pool.get_employee(role)
 
-            base_duration = get_activity_duration(activity_name, process_name, current_time)
+            base_duration = get_activity_duration(activity, process_name, current_time)
             duration = max(1, int(base_duration * employee["efficiency"]))
 
+            end_time = add_working_minutes(
+                current_time, duration, process_name, activity
+            )
             normal_event = {
                 "case_id": case_id,
                 "timestamp_start": current_time,
-                "timestamp_end": current_time + timedelta(minutes=duration),
+                "timestamp_end": end_time,
                 "process": process_name,
                 "activity": activity,
                 "duration_minutes": duration,
@@ -161,19 +162,21 @@ class CaseGenerator:
                 **case_attrs,
             }
             events.append(normal_event)
-            current_time += timedelta(minutes=duration)
+            current_time = end_time
 
             # Аномалия
             if has_anomaly and not anomaly_added:
-                anomaly_type = get_anomaly_for_activity(activity_name)
+                anomaly_type = get_anomaly_for_activity(activity)
                 if anomaly_type:
                     anomaly_duration = get_anomaly_duration(anomaly_type)
                     anomaly_employee = self.resource_pool.get_employee("Specialist")
+                    anomaly_end = add_working_minutes(
+                        current_time, anomaly_duration, process_name, activity
+                    )
                     anomaly_event = {
                         "case_id": case_id,
                         "timestamp_start": current_time,
-                        "timestamp_end": current_time
-                        + timedelta(minutes=anomaly_duration),
+                        "timestamp_end": anomaly_end,
                         "process": process_name,
                         "activity": f"{activity} - {anomaly_type}",
                         "duration_minutes": anomaly_duration,
@@ -186,21 +189,23 @@ class CaseGenerator:
                         **case_attrs,
                     }
                     events.append(anomaly_event)
-                    current_time += timedelta(minutes=anomaly_duration)
+                    current_time = anomaly_end
                     anomaly_added = True
 
             # Переделка
             if has_rework and not rework_added:
-                rework_type = get_rework_for_activity(activity_name)
+                rework_type = get_rework_for_activity(activity)
                 if rework_type:
                     rework_duration = get_rework_duration()
-                    rework_role = self._get_role_for_activity(activity, process_name)
+                    rework_role = role
                     rework_employee = self.resource_pool.get_employee(rework_role)
+                    rework_end = add_working_minutes(
+                        current_time, rework_duration, process_name, activity
+                    )
                     rework_event = {
                         "case_id": case_id,
                         "timestamp_start": current_time,
-                        "timestamp_end": current_time
-                        + timedelta(minutes=rework_duration),
+                        "timestamp_end": rework_end,
                         "process": process_name,
                         "activity": f"{activity} - {rework_type}",
                         "duration_minutes": rework_duration,
@@ -213,7 +218,7 @@ class CaseGenerator:
                         **case_attrs,
                     }
                     events.append(rework_event)
-                    current_time += timedelta(minutes=rework_duration)
+                    current_time = rework_end
                     rework_added = True
 
         return events
@@ -266,9 +271,8 @@ class CaseGenerator:
 
     def _get_role_for_activity(self, activity: str, process_name: str) -> str:
         """Возвращает роль для активности в рамках процесса"""
-        activity_name = get_activity_name(activity, process_name)
         return ROLE_MAPPING.get(process_name, {}).get(
-            activity_name, random.choice(_FALLBACK_ROLES)
+            activity, random.choice(_FALLBACK_ROLES)
         )
 
     def generate_multiple_cases(

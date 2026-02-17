@@ -1,7 +1,5 @@
 import csv
 import random
-import tempfile
-import os
 import pytest
 from datetime import datetime
 from csv_writer import CSVWriter
@@ -93,6 +91,18 @@ class TestCSVWriter:
             row = next(reader)
         assert row["user_id"] == "CUSTOM_USER"
         assert row["department"] == "CUSTOM_DEPT"
+
+    def test_no_fake_metric_fields(self, tmp_path):
+        """Fake metrics should not be in CSV output"""
+        filepath = str(tmp_path / "test.csv")
+        events = self._generate_events(1)
+        self.writer.write_events_to_csv(events, filepath)
+
+        with open(filepath) as f:
+            reader = csv.DictReader(f)
+            for removed in ["resource_usage", "processing_time",
+                            "queue_time", "success_rate", "error_count"]:
+                assert removed not in reader.fieldnames
 
     def test_utf8_encoding(self, tmp_path):
         filepath = str(tmp_path / "test.csv")

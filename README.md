@@ -110,9 +110,9 @@ Additional Verification — дополнительная верификация 
 
 Базовый запуск
 
-python main.py --config 20GB
-python main.py --config 30GB  
-python main.py --config 50GB
+python main.py --config 50MB     # быстрый тест (~100K строк)
+python main.py --config 1GB      # средний датасет
+python main.py --config 20GB     # большой датасет
 
 Кастомная генерация
 
@@ -122,19 +122,23 @@ python main.py --config custom --size 10.0
 # С указанием директории
 python main.py --config 20GB --output ./my_data/
 
-# С прогресс-баром
-python main.py --config 30GB --use_tqdm
+Воспроизводимая генерация (--seed)
 
-Воспроизводимая генерация
-
-# Фиксированный seed
-python main.py --seed 42 --config custom --size 5.0
+# Фиксированный seed — одинаковый результат при каждом запуске
+python main.py --seed 42 --config 1GB
 
 # Другой seed → другие данные
-python main.py --seed 123 --config custom --size 5.0
+python main.py --seed 123 --config 1GB
 
-# Без seed → полностью случайные данные
-python main.py --config custom --size 5.0
+# Без seed → случайные данные каждый раз
+python main.py --config 1GB
+
+CLI-аргументы
+
+--config {50MB,500MB,750MB,1GB,5GB,10GB,20GB,30GB,50GB,custom}  — пресет размера
+--size SIZE      — размер в GB (только для --config custom)
+--output OUTPUT  — выходная директория (по умолчанию ./dataset/)
+--seed SEED      — seed для воспроизводимости результатов
 
 
 ---

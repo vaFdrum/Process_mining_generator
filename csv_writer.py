@@ -16,7 +16,9 @@ class CSVWriter:
         self.logger.info("Запись %d событий в CSV (mode: %s)...", len(events), mode)
 
         with open(filepath, mode, newline="", encoding="utf-8") as csvfile:
-            writer = csv.DictWriter(csvfile, fieldnames=CSV_FIELD_NAMES)
+            writer = csv.DictWriter(
+                csvfile, fieldnames=CSV_FIELD_NAMES, lineterminator="\n"
+            )
 
             if not is_append:
                 writer.writeheader()

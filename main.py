@@ -20,7 +20,8 @@ class ProcessMiningGenerator:
     def __init__(self, config, logger):
         self.config = config
         self.logger = logger
-        self.resource_pool = ResourcePool()
+        seed = config.get("seed")
+        self.resource_pool = ResourcePool(seed=seed)
         self.generator = CaseGenerator(
             start_case_id=1, logger=logger, resource_pool=self.resource_pool
         )
@@ -58,7 +59,6 @@ class ProcessMiningGenerator:
 
         start_date = datetime.strptime(self.config["start_date"], "%Y-%m-%d")
         time_range_days = self.config.get("time_range_days", 365 * 2)
-        processes = list(self.config["process_distribution"].keys())
 
         total_events = 0
         total_cases = 0
@@ -99,20 +99,23 @@ class ProcessMiningGenerator:
                 if batch_cases <= 0:
                     break
 
-            # Выбираем процесс по весам
-            process_name = random.choices(
-                processes,
-                weights=[self.config["process_distribution"][p] for p in processes],
-            )[0]
-
-            process_events = self.generator.generate_multiple_cases(
-                process_name=process_name,
-                num_cases=batch_cases,
-                start_time=start_date
-                + timedelta(days=random.randint(0, time_range_days)),
-                anomaly_rate=self.config["anomaly_rate"],
-                rework_rate=self.config["rework_rate"],
+            # Распределяем кейсы по процессам пропорционально весам
+            process_counts = distribute_processes(
+                self.config["process_distribution"], batch_cases
             )
+            process_events = []
+            for proc_name, proc_cases in process_counts.items():
+                if proc_cases <= 0:
+                    continue
+                events = self.generator.generate_multiple_cases(
+                    process_name=proc_name,
+                    num_cases=proc_cases,
+                    start_time=start_date
+                    + timedelta(days=random.randint(0, time_range_days)),
+                    anomaly_rate=self.config["anomaly_rate"],
+                    rework_rate=self.config["rework_rate"],
+                )
+                process_events.extend(events)
 
             mode = "w" if first_chunk else "a"
             self.csv_writer.write_events_to_csv(
@@ -180,6 +183,7 @@ def parse_arguments():
         "--size", type=float, help="Кастомный размер в GB (только для --config custom)"
     )
     parser.add_argument("--output", type=str, help="Кастомная выходная директория")
+    parser.add_argument("--seed", type=int, default=None, help="Seed для воспроизводимости результатов")
 
     return parser.parse_args()
 
@@ -214,6 +218,10 @@ def main():
         config["output_dir"] = args.output
     else:
         config["output_dir"] = "./dataset/"
+
+    if args.seed is not None:
+        random.seed(args.seed)
+        config["seed"] = args.seed
 
     # Запуск генерации
     start_time = time.time()

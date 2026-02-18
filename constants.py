@@ -12,8 +12,6 @@ BASE_CSV_FIELDS = [
 # Дополнительные fieldnames для CSV
 EXTENDED_CSV_FIELDS = [
     "user_id", "department", "priority", "cost", "comment",
-    "resource_usage", "processing_time", "queue_time",
-    "success_rate", "error_count"
 ]
 
 # Полный список fieldnames
@@ -179,33 +177,3 @@ PROCESS_COMMENTS = {
     ],
 }
 
-# Маппинг для обратной совместимости (если нужно)
-ACTIVITY_ALIASES = {
-    "Approval": {
-        "OrderFulfillment": "Order Completed",
-        "LoanApplication": "Loan Approval",
-        "InvoiceProcessing": "Invoice Approval",
-        "HRRecruitment": "Offer Extended",
-    },
-    "Rejected": {
-        "LoanApplication": "Loan Rejected",
-        "InvoiceProcessing": "Invoice Rejected",
-        "HRRecruitment": "Candidate Rejected",
-    },
-}
-
-
-def get_activity_name(activity: str, process_name: str) -> str:
-    """
-    Возвращает правильное имя активности с учетом контекста процесса
-
-    Args:
-        activity: Базовое имя активности
-        process_name: Название процесса для контекста
-
-    Returns:
-        Уточненное имя активности
-    """
-    if activity in ACTIVITY_ALIASES:
-        return ACTIVITY_ALIASES[activity].get(process_name, activity)
-    return activity

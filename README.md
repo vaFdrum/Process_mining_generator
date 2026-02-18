@@ -66,7 +66,21 @@ python main.py --config custom --size 2.5
 
 # Указать выходную директорию
 python main.py --config 1GB --output ./my_data/
+
+# Воспроизводимая генерация (seed)
+python main.py --seed 42 --config 1GB      # фиксированный seed — одинаковый результат
+python main.py --seed 123 --config 1GB     # другой seed → другие данные
+python main.py --config 1GB                # без seed → случайные данные каждый раз
 ```
+
+**CLI-аргументы:**
+
+| Аргумент | Описание |
+|----------|----------|
+| `--config` | Пресет размера: 50MB, 500MB, 750MB, 1GB, 5GB, 10GB, 20GB, 30GB, 50GB, custom |
+| `--size` | Размер в GB (только для `--config custom`) |
+| `--output` | Выходная директория (по умолчанию `./dataset/`) |
+| `--seed` | Seed для воспроизводимости результатов |
 
 ## Конфигурации
 
@@ -89,7 +103,7 @@ OrderFulfillment 40%, CustomerSupport 25%, LoanApplication 15%, InvoiceProcessin
 
 Выходной файл: `<output_dir>/process_log_<size>GB.csv`
 
-**Поля (21 колонка):**
+**Поля (17 колонок):**
 
 | Поле | Тип | Описание |
 |------|-----|----------|
@@ -110,11 +124,6 @@ OrderFulfillment 40%, CustomerSupport 25%, LoanApplication 15%, InvoiceProcessin
 | `priority` | str | Приоритет: low/medium/high/critical/urgent |
 | `cost` | float | Стоимость кейса |
 | `comment` | str | Бизнес-комментарий |
-| `resource_usage` | float | Загрузка ресурса (%) |
-| `processing_time` | int | Время обработки |
-| `queue_time` | int | Время в очереди |
-| `success_rate` | float | Процент успеха |
-| `error_count` | int | Количество ошибок |
 
 Поля `user_id`, `department`, `priority`, `cost`, `comment` — одинаковые для всех событий одного кейса.
 
